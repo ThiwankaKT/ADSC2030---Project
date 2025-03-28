@@ -1,0 +1,163 @@
+---
+title: "ADSC2030_Project"
+author: "Thiwanka & Neha"
+format: pdf
+editor: visual
+---
+
+## Objective 1 - Poison Antidote - CRB
+
+```{r}
+
+Poison_Antidote <- read.csv("Poison Antidote_RCB.csv")
+
+colnames(Poison_Antidote) <- c("Poison", "Antidote", "Rep", "SurvivalTime")
+
+Poison_Antidote$Poison <- as.factor(Poison_Antidote$Poison)
+Poison_Antidote$Antidote <- as.factor(Poison_Antidote$Antidote)
+Poison_Antidote$Rep <- as.factor(Poison_Antidote$Rep)
+
+```
+
+```{r}
+
+# Determining how antidote and poison affect survival time
+
+model1 <- aov(SurvivalTime ~ Poison + Antidote, data = Poison_Antidote)
+summary(model1)
+
+# reduce residual variance further or analyze effect sizes??
+```
+
+```{r}
+
+# Modifying the ANOVA model to include interaction between Antidote and Poison
+
+model2 <- aov(SurvivalTime ~ Poison * Antidote, data = Poison_Antidote)
+summary(model2)
+
+# Interaction is not significant
+
+```
+
+```{r}
+
+contrasts(Poison_Antidote$Antidote) <- contr.poly(4)
+
+summary.aov(model1, split = list(Antidote = list("Linear" = 1,
+              "Quadratic" = 2, "Cubic" = 3)))
+```
+
+```{r}
+
+library(dplyr)  # Use dplyr for proper data handling
+
+# Compute mean SurvivalTime for each Antidote group
+df_summary <- Poison_Antidote %>%
+  group_by(Antidote) %>%
+  summarise(mean_survival = mean(SurvivalTime, na.rm = TRUE))
+
+x <- as.numeric(as.character(df_summary$Antidote))  # Convert Antidote levels to numeric
+y <- df_summary$mean_survival  # Correctly computed mean SurvivalTime per Antidote
+
+plot(x, y, xlab = "Antidote", ylab = "SurvivalTime")
+
+xx <- seq(min(x), max(x), length.out = 100)  # Adjust range dynamically
+rate.quad <- lm(y ~ poly(x, 3))  # Fit polynomial model
+
+lines(xx, predict(rate.quad, data.frame(x = xx)), col = "blue")  # Draw fitted curve
+
+```
+
+```{r}
+library(dplyr)
+
+# Compute mean SurvivalTime for each Antidote group
+df_summary <- Poison_Antidote %>%
+  group_by(Antidote) %>%
+  summarise(mean_survival = mean(SurvivalTime, na.rm = TRUE))
+
+x <- as.numeric(as.character(df_summary$Antidote))  # Convert Antidote to numeric
+y <- df_summary$mean_survival  # Mean SurvivalTime per Antidote
+
+# Check lengths before proceeding
+cat("Length of x:", length(x), "\n")
+cat("Length of y:", length(y), "\n")
+
+if (length(x) == length(y)) {
+  plot(x, y, xlab = "Antidote", ylab = "Survival Time")
+
+  xx <- seq(min(x), max(x), length.out = 100)  # Adjust range dynamically
+  rate.quad <- lm(y ~ poly(x, 1))  # Fit polynomial model
+
+  lines(xx, predict(rate.quad, data.frame(x = xx)), col = "blue")  # Draw fitted curve
+} else {
+  warning("Mismatch in x and y lengths. Model cannot be fitted.")
+}
+
+```
+
+```{r}
+
+sigma2CRD <- (10330 + 10509)/(4*(3-1))
+sigmaRCB <- 250 # From residuals
+
+nuRCB <- 6 #(b-1)(t-1) #b=10 #t=5
+nuCRD <- 8 #t(b-1)
+
+
+RE <- ((nuRCB+1)*(nuCRD+3)*sigma2CRD)/((nuRCB+3)*(nuCRD+1)*sigmaRCB)
+
+RE
+```
+
+```{r}
+
+## Determining the significance of effects (work for both equal and unequal number of replicates)
+
+library(car)
+library(lsmeans)
+
+model3 <- lm(SurvivalTime ~ Poison * Antidote, data = Poison_Antidote)
+
+lsmeans(model3, "Poison")
+lsmeans(model3, "Antidote")
+
+```
+
+## Objective 2 - Acidity of Sour Cream - LSD
+
+```{r}
+
+Sour_Cream <- read.csv("Acidity of Sour Cream_LSD.csv")
+
+Sour_Cream$Batch <- as.factor(Sour_Cream$Batch)
+Sour_Cream$Position <- as.factor(Sour_Cream$Position)
+Sour_Cream$Starter <- as.factor(Sour_Cream$Starter)
+
+str(Sour_Cream)
+```
+
+```{r}
+
+anovaS <- aov(Acidity ~ Batch + Position + Starter + Batch:Position + Position:Starter + Batch:Starter + Batch:Position:Starter, data = Sour_Cream)
+summary(anovaS)
+
+anovaS.1 <- aov(Acidity ~ Batch*Position*Starter, data = Sour_Cream)
+summary(anovaS.1)
+
+modelS <- lmer(Acidity ~ 1 + (1|Batch) + (1|Position) + (1|Starter), data = Sour_Cream)
+
+summary(modelS)
+
+modelS.1 <- lmer(Acidity ~ 1 + (1|Batch) + (1|Position) + (1|Starter) + (1|Batch:Position), data = Sour_Cream)
+
+summary(modelS.1)
+```
+
+```{r}
+
+prS <- profile(fm6M <-lmer(Acidity ~ 1 + (1|Batch) + (1|Position) + (1|Starter), data = Sour_Cream, REML = FALSE))
+
+confint(prS)
+```
